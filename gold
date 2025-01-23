@@ -1,4 +1,4 @@
-local maxGold = 99999999
+local maxGold = 99999999 -- Giá trị vàng tối đa để kích hoạt dịch chuyển
 local placeId1 = 4310463940 -- PlaceId để dịch chuyển lần đầu
 local targetJobId = "489f3b1d-a0db-42af-b6f5-a888e68ca1cf" -- JobId chỉ định
 
@@ -59,15 +59,30 @@ local function handleJobTeleport(placeId, jobId)
     end
 end
 
+-- Hàm kiểm tra giá trị vàng
+local function getGoldValue()
+    local goldValueObject = player:WaitForChild("PlayerGui")
+                                 :WaitForChild("Profile")
+                                 :WaitForChild("Currency")
+                                 :WaitForChild("Gold")
+    if goldValueObject and goldValueObject:IsA("IntValue") then
+        return goldValueObject.Value
+    else
+        return nil -- Không tìm thấy hoặc không phải IntValue
+    end
+end
+
 -- Hàm tổng hợp xử lý dịch chuyển
 local function handleTeleport()
-    local currentGold = 99999999 -- Lấy giá trị hiện tại của currentGold (giả lập)
+    local currentGold = getGoldValue()
     if currentGold == maxGold then
         print("Vàng đạt giá trị tối đa. Bắt đầu dịch chuyển đến PlaceId.")
         handlePlaceTeleport(placeId1)
 
         print("Bắt đầu dịch chuyển đến JobId.")
         handleJobTeleport(placeId1, targetJobId)
+    else
+        print("Vàng chưa đạt giá trị tối đa hoặc không hợp lệ. Không thực hiện dịch chuyển.")
     end
 end
 
