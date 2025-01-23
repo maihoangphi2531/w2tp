@@ -1,0 +1,75 @@
+local maxGold = 99999999
+local placeId1 = 4310463940 -- PlaceId để dịch chuyển lần đầu
+local targetJobId = "489f3b1d-a0db-42af-b6f5-a888e68ca1cf" -- JobId chỉ định
+
+local player = game:GetService("Players").LocalPlayer
+local teleportService = game:GetService("TeleportService")
+
+-- Hàm dịch chuyển đến PlaceId
+local function teleportToPlace(placeId)
+    teleportService:Teleport(placeId, player)
+    print("Đã gửi yêu cầu dịch chuyển đến PlaceId:", placeId)
+end
+
+-- Hàm kiểm tra nếu đang ở PlaceId
+local function isInPlace(placeId)
+    return game.PlaceId == placeId
+end
+
+-- Hàm xử lý dịch chuyển đến PlaceId
+local function handlePlaceTeleport(placeId)
+    if not isInPlace(placeId) then
+        teleportToPlace(placeId)
+        while not isInPlace(placeId) do
+            print("Đang chờ dịch chuyển đến PlaceId:", placeId)
+            task.wait(1)
+        end
+        print("Đã ở PlaceId:", placeId)
+    else
+        print("Đã ở sẵn PlaceId:", placeId)
+    end
+end
+
+-- Hàm dịch chuyển đến JobId
+local function teleportToJob(placeId, jobId)
+    if isInPlace(placeId) then
+        teleportService:TeleportToPlaceInstance(placeId, jobId, player)
+        print("Đã gửi yêu cầu dịch chuyển đến JobId:", jobId)
+    else
+        print("Không thể dịch chuyển đến JobId. Bạn chưa ở đúng PlaceId:", placeId)
+    end
+end
+
+-- Hàm kiểm tra nếu đã ở JobId
+local function isInJob(jobId)
+    return game.JobId == jobId
+end
+
+-- Hàm xử lý dịch chuyển đến JobId
+local function handleJobTeleport(placeId, jobId)
+    if not isInJob(jobId) then
+        teleportToJob(placeId, jobId)
+        while not isInJob(jobId) do
+            print("Đang chờ dịch chuyển đến JobId:", jobId)
+            task.wait(1)
+        end
+        print("Đã ở JobId chỉ định:", jobId)
+    else
+        print("Đã ở sẵn JobId:", jobId)
+    end
+end
+
+-- Hàm tổng hợp xử lý dịch chuyển
+local function handleTeleport()
+    local currentGold = 99999999 -- Lấy giá trị hiện tại của currentGold (giả lập)
+    if currentGold == maxGold then
+        print("Vàng đạt giá trị tối đa. Bắt đầu dịch chuyển đến PlaceId.")
+        handlePlaceTeleport(placeId1)
+
+        print("Bắt đầu dịch chuyển đến JobId.")
+        handleJobTeleport(placeId1, targetJobId)
+    end
+end
+
+-- Gọi hàm xử lý dịch chuyển
+handleTeleport()
