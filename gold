@@ -8,7 +8,6 @@ local teleportService = game:GetService("TeleportService")
 -- Hàm dịch chuyển đến PlaceId
 local function teleportToPlace(placeId)
     teleportService:Teleport(placeId, player)
-    print("Đã gửi yêu cầu dịch chuyển đến PlaceId:", placeId)
 end
 
 -- Hàm kiểm tra nếu đang ở PlaceId
@@ -21,12 +20,8 @@ local function handlePlaceTeleport(placeId)
     if not isInPlace(placeId) then
         teleportToPlace(placeId)
         while not isInPlace(placeId) do
-            print("Đang chờ dịch chuyển đến PlaceId:", placeId)
             task.wait(1)
         end
-        print("Đã ở PlaceId:", placeId)
-    else
-        print("Đã ở sẵn PlaceId:", placeId)
     end
 end
 
@@ -34,9 +29,6 @@ end
 local function teleportToJob(placeId, jobId)
     if isInPlace(placeId) then
         teleportService:TeleportToPlaceInstance(placeId, jobId, player)
-        print("Đã gửi yêu cầu dịch chuyển đến JobId:", jobId)
-    else
-        print("Không thể dịch chuyển đến JobId. Bạn chưa ở đúng PlaceId:", placeId)
     end
 end
 
@@ -50,12 +42,8 @@ local function handleJobTeleport(placeId, jobId)
     if not isInJob(jobId) then
         teleportToJob(placeId, jobId)
         while not isInJob(jobId) do
-            print("Đang chờ dịch chuyển đến JobId:", jobId)
             task.wait(1)
         end
-        print("Đã ở JobId chỉ định:", jobId)
-    else
-        print("Đã ở sẵn JobId:", jobId)
     end
 end
 
@@ -76,13 +64,8 @@ end
 local function handleTeleport()
     local currentGold = getGoldValue()
     if currentGold == maxGold then
-        print("Vàng đạt giá trị tối đa. Bắt đầu dịch chuyển đến PlaceId.")
         handlePlaceTeleport(placeId1)
-
-        print("Bắt đầu dịch chuyển đến JobId.")
         handleJobTeleport(placeId1, targetJobId)
-    else
-        print("Vàng chưa đạt giá trị tối đa hoặc không hợp lệ. Không thực hiện dịch chuyển.")
     end
 end
 
