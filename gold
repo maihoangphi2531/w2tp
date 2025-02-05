@@ -1,72 +1,77 @@
 local maxGold = 99999999 -- Giá trị vàng tối đa để kích hoạt dịch chuyển
 local placeId1 = 4310463940 -- PlaceId để dịch chuyển lần đầu
+local placeId2 = 4310463616 -- PlaceId để dịch chuyển sau 3 phút
 local targetJobId = "7e97f12c-72a9-4a9d-a5b5-7a1554673a96" -- JobId chỉ định
-
 local player = game:GetService("Players").LocalPlayer
 local teleportService = game:GetService("TeleportService")
 
 -- Hàm dịch chuyển đến PlaceId
 local function teleportToPlace(placeId)
-    teleportService:Teleport(placeId, player)
+   teleportService:Teleport(placeId, player)
 end
 
 -- Hàm kiểm tra nếu đang ở PlaceId
 local function isInPlace(placeId)
-    return game.PlaceId == placeId
+   return game.PlaceId == placeId
 end
 
 -- Hàm xử lý dịch chuyển đến PlaceId
 local function handlePlaceTeleport(placeId)
-    if not isInPlace(placeId) then
-        teleportToPlace(placeId)
-        while not isInPlace(placeId) do
-            task.wait(1)
-        end
-    end
+   if not isInPlace(placeId) then
+       teleportToPlace(placeId)
+       while not isInPlace(placeId) do
+           task.wait(1)
+       end
+   end
 end
 
 -- Hàm dịch chuyển đến JobId
 local function teleportToJob(placeId, jobId)
-    if isInPlace(placeId) then
-        teleportService:TeleportToPlaceInstance(placeId, jobId, player)
-    end
+   if isInPlace(placeId) then
+       teleportService:TeleportToPlaceInstance(placeId, jobId, player)
+   end
 end
 
 -- Hàm kiểm tra nếu đã ở JobId
 local function isInJob(jobId)
-    return game.JobId == jobId
+   return game.JobId == jobId
 end
 
 -- Hàm xử lý dịch chuyển đến JobId
 local function handleJobTeleport(placeId, jobId)
-    if not isInJob(jobId) then
-        teleportToJob(placeId, jobId)
-        while not isInJob(jobId) do
-            task.wait(1)
-        end
-    end
+   if not isInJob(jobId) then
+       teleportToJob(placeId, jobId)
+       while not isInJob(jobId) do
+           task.wait(1)
+       end
+   end
 end
 
 -- Hàm kiểm tra giá trị vàng
 local function getGoldValue()
-    local goldValueObject = player:WaitForChild("PlayerGui")
-                                 :WaitForChild("Profile")
-                                 :WaitForChild("Currency")
-                                 :WaitForChild("Gold")
-    if goldValueObject and goldValueObject:IsA("IntValue") then
-        return goldValueObject.Value
-    else
-        return nil -- Không tìm thấy hoặc không phải IntValue
-    end
+   local goldValueObject = player:WaitForChild("PlayerGui")
+                                :WaitForChild("Profile")
+                                :WaitForChild("Currency")
+                                :WaitForChild("Gold")
+   if goldValueObject and goldValueObject:IsA("IntValue") then
+       return goldValueObject.Value
+   else
+       return nil -- Không tìm thấy hoặc không phải IntValue
+   end
 end
 
 -- Hàm tổng hợp xử lý dịch chuyển
 local function handleTeleport()
-    local currentGold = getGoldValue()
-    if currentGold == maxGold then
-        handlePlaceTeleport(placeId1)
-        handleJobTeleport(placeId1, targetJobId)
-    end
+   local currentGold = getGoldValue()
+   if currentGold == maxGold then
+       handlePlaceTeleport(placeId1)
+       handleJobTeleport(placeId1, targetJobId)
+       
+       if game.PlaceId == placeId1 then
+           task.wait(180) -- Đợi 3 phút
+           teleportService:Teleport(placeId2)
+       end
+   end
 end
 
 -- Gọi hàm xử lý dịch chuyển
