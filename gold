@@ -1,7 +1,7 @@
 local maxGold = 99999999 -- Giá trị vàng tối đa để kích hoạt dịch chuyển
 local placeId1 = 4310463940 -- PlaceId để dịch chuyển lần đầu
 local placeId2 = 4310463616 -- PlaceId để dịch chuyển sau 3 phút
-local targetJobId = "ecca1df5-0c08-42e6-82c6-e8b2942d01b0" -- JobId chỉ định
+local targetJobId = "aa8fa185-cad5-4275-9a24-56c6caf90c45" -- JobId chỉ định
 local player = game:GetService("Players").LocalPlayer
 local teleportService = game:GetService("TeleportService")
 
