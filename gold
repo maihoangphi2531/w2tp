@@ -1,4 +1,4 @@
-local maxGold = 99999999 -- Giá trị vàng tối đa để kích hoạt dịch chuyển
+local maxGold = 10000000 -- Giá trị vàng tối đa để kích hoạt dịch chuyển
 local placeId1 = 4310463940 -- PlaceId để dịch chuyển lần đầu
 local placeId2 = 4310463616 -- PlaceId để dịch chuyển sau 3 phút
 local targetJobId = "c86e4dea-cb81-49f2-913c-e966a29804d0" -- JobId chỉ định
