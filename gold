@@ -4,24 +4,47 @@ local placeId2 = 4310463616 -- PlaceId để dịch chuyển sau 3 phút
 local player = game:GetService("Players").LocalPlayer
 local teleportService = game:GetService("TeleportService")
 
--- Hàm dịch chuyển đến PlaceId
-local function teleportToPlace(placeId)
-    teleportService:Teleport(placeId, player)
-end
-
 -- Hàm kiểm tra nếu đang ở PlaceId
 local function isInPlace(placeId)
     return game.PlaceId == placeId
 end
 
--- Hàm xử lý dịch chuyển đến PlaceId
-local function handlePlaceTeleport(placeId)
-    if not isInPlace(placeId) then
-        teleportToPlace(placeId)
-        while not isInPlace(placeId) do
-            task.wait(1)
+-- [[ HÀM MỚI ]] --
+-- Hàm dịch chuyển đến PlaceId với cơ chế thử lại nhiều lần
+local function teleportWithRetries(placeId, maxRetries)
+    maxRetries = maxRetries or 10 -- Nếu không chỉ định, sẽ thử tối đa 10 lần
+
+    for attempt = 1, maxRetries do
+        -- Nếu đã ở đúng nơi, trả về thành công và thoát
+        if isInPlace(placeId) then
+            warn("Đã ở đúng địa điểm: " .. placeId)
+            return true 
+        end
+
+        warn("Đang thử dịch chuyển đến " .. placeId .. ", lần thử " .. attempt .. "/" .. maxRetries)
+        
+        -- Sử dụng pcall để bắt lỗi nếu TeleportService gặp sự cố
+        local success, err = pcall(function()
+            teleportService:Teleport(placeId, player)
+        end)
+
+        if not success then
+            warn("Lỗi khi gọi TeleportService: " .. tostring(err))
+        end
+
+        -- Đợi một khoảng thời gian để game có thời gian chuyển server
+        -- và kiểm tra xem đã dịch chuyển thành công chưa
+        task.wait(15) -- Chờ 15 giây giữa các lần thử
+
+        -- Kiểm tra lại sau khi chờ
+        if isInPlace(placeId) then
+            warn("Dịch chuyển thành công đến " .. placeId)
+            return true -- Thoát khỏi hàm nếu thành công
         end
     end
+
+    warn("Dịch chuyển thất bại sau " .. maxRetries .. " lần thử.")
+    return false -- Trả về thất bại nếu hết số lần thử
 end
 
 -- Hàm kiểm tra giá trị vàng
@@ -37,18 +60,32 @@ local function getGoldValue()
     end
 end
 
--- Hàm tổng hợp xử lý dịch chuyển
+-- Hàm tổng hợp xử lý dịch chuyển (đã được cập nhật)
 local function handleTeleport()
     local currentGold = getGoldValue()
-    if currentGold == maxGold then
-        handlePlaceTeleport(placeId1)
+    if currentGold and currentGold >= maxGold then -- Thay == bằng >= để chắc chắn hơn
+        warn("Vàng đã đầy, bắt đầu quá trình dịch chuyển.")
+        
+        -- Thử dịch chuyển đến placeId1
+        local success1 = teleportWithRetries(placeId1, 10)
 
-        if game.PlaceId == placeId1 then
+        -- Chỉ tiếp tục nếu việc dịch chuyển đầu tiên thành công
+        if success1 then
+            warn("Đã đến placeId1. Bắt đầu chờ 3 phút...")
             task.wait(180) -- Đợi 3 phút
-            teleportService:Teleport(placeId2, player)
+            warn("Đã hết 3 phút. Chuẩn bị dịch chuyển đến placeId2.")
+            
+            -- Thử dịch chuyển đến placeId2
+            teleportWithRetries(placeId2, 10)
+        else
+            warn("Không thể dịch chuyển đến placeId1. Hủy bỏ quá trình.")
         end
     end
 end
 
--- Gọi hàm xử lý dịch chuyển
-handleTeleport()
+-- [[ CẬP NHẬT ]] --
+-- Chạy trong một vòng lặp để liên tục kiểm tra vàng
+while true do
+    handleTeleport()
+    task.wait(10) -- Kiểm tra vàng mỗi 10 giây
+end
