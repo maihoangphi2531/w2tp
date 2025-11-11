@@ -9,8 +9,7 @@ local function isInPlace(placeId)
     return game.PlaceId == placeId
 end
 
--- [[ HÀM MỚI ]] --
--- Hàm dịch chuyển đến PlaceId với cơ chế thử lại nhiều lần
+-- Hàm dịch chuyển đến PlaceId với cơ chế thử lại và tự kick nếu thất bại
 local function teleportWithRetries(placeId, maxRetries)
     maxRetries = maxRetries or 10 -- Nếu không chỉ định, sẽ thử tối đa 10 lần
 
@@ -33,7 +32,6 @@ local function teleportWithRetries(placeId, maxRetries)
         end
 
         -- Đợi một khoảng thời gian để game có thời gian chuyển server
-        -- và kiểm tra xem đã dịch chuyển thành công chưa
         task.wait(15) -- Chờ 15 giây giữa các lần thử
 
         -- Kiểm tra lại sau khi chờ
@@ -43,27 +41,37 @@ local function teleportWithRetries(placeId, maxRetries)
         end
     end
 
-    warn("Dịch chuyển thất bại sau " .. maxRetries .. " lần thử.")
-    return false -- Trả về thất bại nếu hết số lần thử
+    -- [[ THAY ĐỔI Ở ĐÂY ]] --
+    -- Nếu vòng lặp kết thúc mà không thành công, thực hiện kick người chơi
+    warn("Dịch chuyển thất bại sau " .. maxRetries .. " lần thử. Sẽ tự động kick để restart.")
+    player:Kick("Tự động khởi động lại: Dịch chuyển thất bại nhiều lần.")
+    -- [[ KẾT THÚC THAY ĐỔI ]] --
+    
+    return false -- Dòng này có thể không bao giờ được chạy, nhưng vẫn giữ để logic hoàn chỉnh
 end
 
 -- Hàm kiểm tra giá trị vàng
 local function getGoldValue()
-    local goldValueObject = player:WaitForChild("PlayerGui")
-                                :WaitForChild("Profile")
-                                :WaitForChild("Currency")
-                                :WaitForChild("Gold")
-    if goldValueObject and goldValueObject:IsA("IntValue") then
+    -- Sử dụng pcall để tránh lỗi nếu các đối tượng GUI chưa được tải
+    local success, goldValue = pcall(function()
+        local goldValueObject = player:WaitForChild("PlayerGui")
+                                    :WaitForChild("Profile")
+                                    :WaitForChild("Currency")
+                                    :WaitForChild("Gold")
         return goldValueObject.Value
+    end)
+
+    if success then
+        return goldValue
     else
         return nil
     end
 end
 
--- Hàm tổng hợp xử lý dịch chuyển (đã được cập nhật)
+-- Hàm tổng hợp xử lý dịch chuyển
 local function handleTeleport()
     local currentGold = getGoldValue()
-    if currentGold and currentGold >= maxGold then -- Thay == bằng >= để chắc chắn hơn
+    if currentGold and currentGold >= maxGold then
         warn("Vàng đã đầy, bắt đầu quá trình dịch chuyển.")
         
         -- Thử dịch chuyển đến placeId1
@@ -78,14 +86,15 @@ local function handleTeleport()
             -- Thử dịch chuyển đến placeId2
             teleportWithRetries(placeId2, 10)
         else
+            -- Về mặt lý thuyết, dòng này sẽ không được chạy vì script sẽ kick người chơi trước
             warn("Không thể dịch chuyển đến placeId1. Hủy bỏ quá trình.")
         end
     end
 end
 
--- [[ CẬP NHẬT ]] --
 -- Chạy trong một vòng lặp để liên tục kiểm tra vàng
 while true do
-    handleTeleport()
+    -- Bọc trong pcall để toàn bộ script không bị dừng nếu có lỗi bất ngờ
+    pcall(handleTeleport)
     task.wait(10) -- Kiểm tra vàng mỗi 10 giây
 end
