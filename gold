@@ -29,6 +29,23 @@ local function isAlive()
     return humanoid.Health > 0
 end
 
+-- Hàm kiểm tra giá trị vàng
+local function getGoldValue()
+    local success, goldValue = pcall(function()
+        local goldValueObject = player:WaitForChild("PlayerGui")
+                                    :WaitForChild("Profile")
+                                    :WaitForChild("Currency")
+                                    :WaitForChild("Gold")
+        return goldValueObject.Value
+    end)
+
+    if success then
+        return goldValue
+    else
+        return nil
+    end
+end
+
 -- Hàm dịch chuyển đến World sử dụng Remote (thay vì TeleportService)
 local function teleportToWorld(remoteId, targetPlaceId, maxRetries)
     maxRetries = maxRetries or 10
@@ -82,42 +99,58 @@ local function teleportToWorld(remoteId, targetPlaceId, maxRetries)
     return false
 end
 
--- Hàm kiểm tra giá trị vàng
-local function getGoldValue()
-    local success, goldValue = pcall(function()
-        local goldValueObject = player:WaitForChild("PlayerGui")
-                                    :WaitForChild("Profile")
-                                    :WaitForChild("Currency")
-                                    :WaitForChild("Gold")
-        return goldValueObject.Value
-    end)
-
-    if success then
-        return goldValue
-    else
-        return nil
+-- Hàm đợi cho đến khi vàng không còn là maxGold (thay vì đợi cố định 3 phút)
+local function waitUntilGoldChanged()
+    local maxWaitTime = 1000 -- Tối đa 5 phút (300 giây) để tránh đợi vô hạn
+    local waitedTime = 0
+    local checkInterval = 5 -- Kiểm tra mỗi 5 giây
+    
+    warn("⏳ Đang đợi vàng thay đổi (hiện tại: " .. maxGold .. ")...")
+    
+    while waitedTime < maxWaitTime do
+        task.wait(checkInterval)
+        waitedTime = waitedTime + checkInterval
+        
+        local currentGold = getGoldValue()
+        
+        if currentGold then
+            if currentGold ~= maxGold then
+                warn("✅ Vàng đã thay đổi! Hiện tại: " .. currentGold .. " (đợi " .. waitedTime .. "s)")
+                return true
+            else
+                warn("⏳ Vàng vẫn là " .. currentGold .. " - đã đợi " .. waitedTime .. "s / " .. maxWaitTime .. "s")
+            end
+        else
+            warn("⚠️ Không thể đọc giá trị vàng, tiếp tục đợi...")
+        end
     end
+    
+    warn("⚠️ Đã đợi quá " .. maxWaitTime .. "s mà vàng vẫn không đổi. Tiếp tục về World 1...")
+    return false
 end
 
 -- Hàm tổng hợp xử lý dịch chuyển
 local function handleTeleport()
     local currentGold = getGoldValue()
     if currentGold and currentGold >= maxGold then
-        warn("Vàng đã đầy, bắt đầu quá trình dịch chuyển.")
+        warn("💰 Vàng đã đầy (" .. currentGold .. "), bắt đầu quá trình dịch chuyển.")
         
         -- Thử dịch chuyển đến World 2 (sử dụng Remote)
         local success1 = teleportToWorld(remoteId1, placeId1, 10)
 
         -- Chỉ tiếp tục nếu việc dịch chuyển đầu tiên thành công
         if success1 then
-            warn("Đã đến World 2. Bắt đầu chờ 3 phút...")
-            task.wait(180)
-            warn("Đã hết 3 phút. Chuẩn bị dịch chuyển đến World 1.")
+            warn("✅ Đã đến World 2. Đang đợi vàng thay đổi...")
             
-            -- Thử dịch chuyển đến World 1 (sử dụng Remote)
+            -- Đợi cho đến khi vàng không còn là maxGold
+            waitUntilGoldChanged()
+            
+            warn("🔄 Chuẩn bị dịch chuyển về World 1...")
+            
+            -- Dịch chuyển về World 1
             teleportToWorld(remoteId2, placeId2, 10)
         else
-            warn("Không thể dịch chuyển đến World 2. Hủy bỏ quá trình.")
+            warn("❌ Không thể dịch chuyển đến World 2. Hủy bỏ quá trình.")
         end
     end
 end
