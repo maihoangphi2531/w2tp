@@ -4,7 +4,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Remote Id tương ứng với các World (dùng cho TeleportToHub)
 local remoteId1 = 19 -- World 2 (Remote Id)
-local remoteId2 = 13 -- World 1 (Remote Id)
+local remoteId2 = 20 -- World 1 (Remote Id)
 
 -- PlaceId để kiểm tra vị trí hiện tại
 local placeId1 = 4310463940 -- World 2
