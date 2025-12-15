@@ -1,162 +1,89 @@
-local maxGold = 99999999 -- Giá trị vàng tối đa để kích hoạt dịch chuyển
+local maxGold = 99999999
 local player = game:GetService("Players").LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Remote Id tương ứng với các World (dùng cho TeleportToHub)
-local remoteId1 = 19 -- World 2 (Remote Id)
-local remoteId2 = 20 -- World 1 (Remote Id)
+-- Cấu hình ID
+local remoteIdToW2 = 19 -- Sang World 2
+local remoteIdToW1 = 20 -- Về World 1
+local placeIdW2 = 4310463940
+local placeIdW1 = 4310463616
 
--- PlaceId để kiểm tra vị trí hiện tại
-local placeId1 = 4310463940 -- World 2
-local placeId2 = 4310463616 -- World 1
+-- Hàm lấy Remote động (Luôn lấy remote mới nhất)
+local function getTeleportRemote()
+    local Shared = ReplicatedStorage:FindFirstChild("Shared")
+    local TeleportRemote = Shared and Shared:FindFirstChild("Teleport")
+    return TeleportRemote and TeleportRemote:FindFirstChild("TeleportToHub")
+end
 
--- Lấy Remote để teleport
-local Shared = ReplicatedStorage:WaitForChild("Shared", 10)
-local TeleportRemote = Shared and Shared:WaitForChild("Teleport", 10)
-local TeleportToHub = TeleportRemote and TeleportRemote:WaitForChild("TeleportToHub", 10)
-
--- Hàm kiểm tra nếu đang ở PlaceId
 local function isInPlace(placeId)
     return game.PlaceId == placeId
 end
 
--- Hàm kiểm tra nhân vật còn sống không
 local function isAlive()
-    local character = player.Character
-    if not character then return false end
-    local humanoid = character:FindFirstChildOfClass("Humanoid")
-    if not humanoid then return false end
-    return humanoid.Health > 0
+    local char = player.Character
+    return char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0
 end
 
--- Hàm kiểm tra giá trị vàng
 local function getGoldValue()
-    local success, goldValue = pcall(function()
-        local goldValueObject = player:WaitForChild("PlayerGui")
-                                    :WaitForChild("Profile")
-                                    :WaitForChild("Currency")
-                                    :WaitForChild("Gold")
-        return goldValueObject.Value
+    local success, val = pcall(function()
+        return player.PlayerGui.Profile.Currency.Gold.Value
     end)
-
-    if success then
-        return goldValue
-    else
-        return nil
-    end
+    return success and val or nil
 end
 
--- Hàm dịch chuyển đến World sử dụng Remote (thay vì TeleportService)
-local function teleportToWorld(remoteId, targetPlaceId, maxRetries)
-    maxRetries = maxRetries or 10
+local function teleportWithRetry(remoteId, targetPlaceId)
+    local Remote = getTeleportRemote()
+    if not Remote then warn("❌ Không tìm thấy Remote Teleport!") return end
 
-    for attempt = 1, maxRetries do
-        -- Nếu đã ở đúng nơi, trả về thành công và thoát
-        if isInPlace(targetPlaceId) then
-            warn("Đã ở đúng địa điểm: " .. targetPlaceId)
-            return true 
-        end
-
-        -- Kiểm tra nhân vật còn sống không
-        if not isAlive() then
-            warn("Nhân vật đã chết, đợi hồi sinh...")
-            task.wait(5)
-            continue
-        end
-
-        -- Kiểm tra Remote có tồn tại không
-        if not TeleportToHub then
-            warn("Không tìm thấy TeleportToHub Remote!")
-            task.wait(5)
-            continue
-        end
-
-        warn("Đang thử dịch chuyển đến World (Remote Id: " .. remoteId .. "), lần thử " .. attempt .. "/" .. maxRetries)
+    for i = 1, 10 do
+        if isInPlace(targetPlaceId) then return true end -- Đã ở đúng nơi
         
-        -- Sử dụng Remote của game thay vì TeleportService
-        local success, err = pcall(function()
-            TeleportToHub:FireServer(remoteId)
-        end)
-
-        if not success then
-            warn("Lỗi khi gọi TeleportToHub: " .. tostring(err))
-        end
-
-        -- Đợi một khoảng thời gian để game có thời gian chuyển server
-        task.wait(15)
-
-        -- Kiểm tra lại sau khi chờ
-        if isInPlace(targetPlaceId) then
-            warn("Dịch chuyển thành công đến " .. targetPlaceId)
-            return true
-        end
-    end
-
-    -- Nếu vòng lặp kết thúc mà không thành công, thực hiện kick người chơi
-    warn("Dịch chuyển thất bại sau " .. maxRetries .. " lần thử. Sẽ tự động kick để restart.")
-    player:Kick("Tự động khởi động lại: Dịch chuyển thất bại nhiều lần.")
-    
-    return false
-end
-
--- Hàm đợi cho đến khi vàng không còn là maxGold (thay vì đợi cố định 3 phút)
-local function waitUntilGoldChanged()
-    local maxWaitTime = 1000 -- Tối đa 5 phút (300 giây) để tránh đợi vô hạn
-    local waitedTime = 0
-    local checkInterval = 5 -- Kiểm tra mỗi 5 giây
-    
-    warn("⏳ Đang đợi vàng thay đổi (hiện tại: " .. maxGold .. ")...")
-    
-    while waitedTime < maxWaitTime do
-        task.wait(checkInterval)
-        waitedTime = waitedTime + checkInterval
-        
-        local currentGold = getGoldValue()
-        
-        if currentGold then
-            if currentGold ~= maxGold then
-                warn("✅ Vàng đã thay đổi! Hiện tại: " .. currentGold .. " (đợi " .. waitedTime .. "s)")
-                return true
-            else
-                warn("⏳ Vàng vẫn là " .. currentGold .. " - đã đợi " .. waitedTime .. "s / " .. maxWaitTime .. "s")
-            end
+        if isAlive() then
+            warn("🔄 Đang dịch chuyển... Thử lần " .. i)
+            pcall(function() Remote:FireServer(remoteId) end)
         else
-            warn("⚠️ Không thể đọc giá trị vàng, tiếp tục đợi...")
+            warn("⚠️ Nhân vật đã chết, đợi hồi sinh...")
         end
+        
+        task.wait(10) -- Đợi load game
     end
-    
-    warn("⚠️ Đã đợi quá " .. maxWaitTime .. "s mà vàng vẫn không đổi. Tiếp tục về World 1...")
     return false
 end
 
--- Hàm tổng hợp xử lý dịch chuyển
-local function handleTeleport()
+-- Hàm xử lý logic chính (Đã tách logic)
+local function handleAutoFarm()
     local currentGold = getGoldValue()
-    if currentGold and currentGold >= maxGold then
-        warn("💰 Vàng đã đầy (" .. currentGold .. "), bắt đầu quá trình dịch chuyển.")
-        
-        -- Thử dịch chuyển đến World 2 (sử dụng Remote)
-        local success1 = teleportToWorld(remoteId1, placeId1, 10)
+    if not currentGold then return end -- Chưa load xong GUI thì bỏ qua
 
-        -- Chỉ tiếp tục nếu việc dịch chuyển đầu tiên thành công
-        if success1 then
-            warn("✅ Đã đến World 2. Đang đợi vàng thay đổi...")
-            
-            -- Đợi cho đến khi vàng không còn là maxGold
-            waitUntilGoldChanged()
-            
-            warn("🔄 Chuẩn bị dịch chuyển về World 1...")
-            
-            -- Dịch chuyển về World 1
-            teleportToWorld(remoteId2, placeId2, 10)
+    -- TRƯỜNG HỢP 1: Đang ở World 1 (Đi farm)
+    if isInPlace(placeIdW1) then
+        if currentGold >= maxGold then
+            warn("💰 Vàng đầy! Chuẩn bị sang World 2...")
+            teleportWithRetry(remoteIdToW2, placeIdW2)
         else
-            warn("❌ Không thể dịch chuyển đến World 2. Hủy bỏ quá trình.")
+            -- Vẫn đang farm, không làm gì cả
+            -- warn("⛏️ Đang farm tại World 1... Vàng: " .. currentGold)
         end
+
+    -- TRƯỜNG HỢP 2: Đang ở World 2 (Đi tiêu tiền)
+    elseif isInPlace(placeIdW2) then
+        if currentGold < maxGold then
+            warn("✅ Vàng đã giảm (" .. currentGold .. "). Về World 1 farm tiếp...")
+            task.wait(5) -- Đợi một chút cho chắc chắn
+            teleportWithRetry(remoteIdToW1, placeIdW1)
+        else
+            warn("⏳ Đang ở World 2, đợi tiêu vàng... (Hiện tại: " .. currentGold .. ")")
+            -- Ở đây chờ script summon hoặc tự quay tay
+        end
+        
+    else
+        warn("⚠️ Không xác định được vị trí (Không phải W1 cũng không phải W2)")
     end
 end
 
--- Chạy trong một vòng lặp để liên tục kiểm tra vàng
+-- Vòng lặp chính
+warn("🚀 Script Auto Teleport đã khởi chạy!")
 while true do
-    pcall(handleTeleport)
-    task.wait(10)
+    pcall(handleAutoFarm)
+    task.wait(5) -- Kiểm tra mỗi 5 giây
 end
