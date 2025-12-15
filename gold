@@ -3,27 +3,25 @@ local player = game:GetService("Players").LocalPlayer
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 -- Cấu hình ID
-local remoteIdToW2 = 19 -- Sang World 2
-local remoteIdToW1 = 20 -- Về World 1
-local placeIdW2 = 4310463940
-local placeIdW1 = 4310463616
+local remoteIdToW2 = 19 -- ID Remote để sang World 2
+local remoteIdToW1 = 20 -- ID Remote để về World 1
+local placeIdW2 = 4310463940 -- ID Map World 2
+local placeIdW1 = 4310463616 -- ID Map World 1 (Nơi trả về mặc định sau kxhi tiêu tiền)
 
--- Hàm lấy Remote động (Luôn lấy remote mới nhất)
+-- Hàm lấy Remote động (Luôn lấy remote mới nhất tránh lỗi)
 local function getTeleportRemote()
     local Shared = ReplicatedStorage:FindFirstChild("Shared")
     local TeleportRemote = Shared and Shared:FindFirstChild("Teleport")
     return TeleportRemote and TeleportRemote:FindFirstChild("TeleportToHub")
 end
 
-local function isInPlace(placeId)
-    return game.PlaceId == placeId
-end
-
+-- Hàm kiểm tra nhân vật sống
 local function isAlive()
     local char = player.Character
     return char and char:FindFirstChild("Humanoid") and char.Humanoid.Health > 0
 end
 
+-- Hàm lấy vàng an toàn
 local function getGoldValue()
     local success, val = pcall(function()
         return player.PlayerGui.Profile.Currency.Gold.Value
@@ -31,59 +29,61 @@ local function getGoldValue()
     return success and val or nil
 end
 
+-- Hàm dịch chuyển chung
 local function teleportWithRetry(remoteId, targetPlaceId)
     local Remote = getTeleportRemote()
     if not Remote then warn("❌ Không tìm thấy Remote Teleport!") return end
 
-    for i = 1, 10 do
-        if isInPlace(targetPlaceId) then return true end -- Đã ở đúng nơi
+    -- Chỉ thử 5 lần rồi thôi để tránh spam
+    for i = 1, 5 do
+        if game.PlaceId == targetPlaceId then return true end -- Đã tới nơi
         
         if isAlive() then
-            warn("🔄 Đang dịch chuyển... Thử lần " .. i)
+            warn("🔄 Đang dịch chuyển... (Remote: " .. remoteId .. ") - Thử lần " .. i)
             pcall(function() Remote:FireServer(remoteId) end)
         else
             warn("⚠️ Nhân vật đã chết, đợi hồi sinh...")
         end
         
-        task.wait(10) -- Đợi load game
+        task.wait(10) -- Đợi 10s để game load map
     end
-    return false
 end
 
--- Hàm xử lý logic chính (Đã tách logic)
-local function handleAutoFarm()
+-- === LOGIC CHÍNH ĐÃ SỬA ===
+local function handleLogic()
     local currentGold = getGoldValue()
-    if not currentGold then return end -- Chưa load xong GUI thì bỏ qua
+    local currentPlaceId = game.PlaceId
 
-    -- TRƯỜNG HỢP 1: Đang ở World 1 (Đi farm)
-    if isInPlace(placeIdW1) then
-        if currentGold >= maxGold then
-            warn("💰 Vàng đầy! Chuẩn bị sang World 2...")
-            teleportWithRetry(remoteIdToW2, placeIdW2)
-        else
-            -- Vẫn đang farm, không làm gì cả
-            -- warn("⛏️ Đang farm tại World 1... Vàng: " .. currentGold)
-        end
+    -- Nếu chưa load được vàng thì bỏ qua vòng này
+    if not currentGold then return end 
 
-    -- TRƯỜNG HỢP 2: Đang ở World 2 (Đi tiêu tiền)
-    elseif isInPlace(placeIdW2) then
+    -- TRƯỜNG HỢP 1: ĐANG Ở WORLD 2 (Nơi tiêu tiền)
+    if currentPlaceId == placeIdW2 then
         if currentGold < maxGold then
-            warn("✅ Vàng đã giảm (" .. currentGold .. "). Về World 1 farm tiếp...")
-            task.wait(5) -- Đợi một chút cho chắc chắn
+            warn("✅ Vàng đã giảm (" .. currentGold .. "). Quay về World 1 để farm tiếp!")
+            task.wait(3) -- Đợi xíu cho chắc
             teleportWithRetry(remoteIdToW1, placeIdW1)
         else
-            warn("⏳ Đang ở World 2, đợi tiêu vàng... (Hiện tại: " .. currentGold .. ")")
-            -- Ở đây chờ script summon hoặc tự quay tay
+            -- Nếu vàng vẫn đầy, script sẽ không làm gì cả (đợi bạn quay tướng)
+            warn("⏳ Đang ở World 2 - Đợi tiêu vàng... (Hiện tại: " .. currentGold .. ")")
         end
-        
+
+    -- TRƯỜNG HỢP 2: ĐANG Ở BẤT KỲ ĐÂU KHÁC (World 1, World 3, Event, v.v...)
     else
-        warn("⚠️ Không xác định được vị trí (Không phải W1 cũng không phải W2)")
+        if currentGold >= maxGold then
+            warn("💰 Phát hiện vàng đầy (" .. currentGold .. ") tại Map ID: " .. currentPlaceId)
+            warn("🚀 Bắt đầu dịch chuyển sang World 2...")
+            teleportWithRetry(remoteIdToW2, placeIdW2)
+        else
+            -- Vàng chưa đầy, ở yên farm tiếp
+            -- warn("⛏️ Đang farm... Vàng hiện tại: " .. currentGold)
+        end
     end
 end
 
--- Vòng lặp chính
-warn("🚀 Script Auto Teleport đã khởi chạy!")
+-- Vòng lặp chạy vĩnh cửu
+warn("🚀 Script Auto: Check tất cả World đã chạy!")
 while true do
-    pcall(handleAutoFarm)
+    pcall(handleLogic)
     task.wait(5) -- Kiểm tra mỗi 5 giây
 end
